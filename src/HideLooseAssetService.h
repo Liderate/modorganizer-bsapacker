@@ -12,6 +12,7 @@ namespace BsaPacker
 	public:
 		HideLooseAssetService(const ISettingsService* settingsService);
 		bool HideLooseAssets(const QDir& modDirectory) const override;
+		void DeleteEmptyDirs(const QDir& dir) const;
 
 		static QString s_HiddenExt;
 

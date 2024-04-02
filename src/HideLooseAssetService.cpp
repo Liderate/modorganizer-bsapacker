@@ -29,16 +29,17 @@ namespace BsaPacker
 		}
 
 		const QString& absModDir = modDirectory.absolutePath();
-		for (const QString& subDir : modDirectory.entryList(QDir::Dirs | QDir::NoDotAndDotDot)) {
+		const QStringList& subDirs = modDirectory.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
+		QtConcurrent::blockingMap(subDirs, [&](const QString& subDir) {
 			// Hide subdirectories
 			const QString& absPath = absModDir + '/' + subDir;
 			QDir originalDir(absPath);
 			if (originalDir.dirName().endsWith(s_HiddenExt) || originalDir.isEmpty()) {
-				continue;
+				return;
 			}
 			if (!originalDir.rename(originalDir.absolutePath(), originalDir.absolutePath() + s_HiddenExt)) {
 				qWarning() << "Failed to hide " << originalDir.absolutePath();
-				continue;
+				return;
 			}
 
 			// Restore files with blacklisted extension to their original directories
@@ -52,18 +53,21 @@ namespace BsaPacker
 					qWarning() << "Failed to unhide " << hiddenFilePath;
 				}
 			}
-		}
-		return true;
 
-		/*
-		const std::function<void(const QString&)> hideFolder = [&](const QString& subDir)
+			// Clean up empty directories. These happen when every file in a folder was blacklisted
+			DeleteEmptyDirs(hiddenDir);
+			});
+
+		return true;
+	}
+
+	// Recursive to be depth first. rmdir only removes empty directories
+	void HideLooseAssetService::DeleteEmptyDirs(const QDir& dir) const
+	{
+		for (const auto& dirName : dir.entryList(QDir::Dirs | QDir::NoDotAndDotDot))
 		{
-			const QString& absPath = absModDir + '/' + subDir;
-			QDir dir(absPath);
-			if (!dir.dirName().endsWith(".mohidden"))
-				dir.rename(absPath, absPath + ".mohidden");
-		};
-		*/
-		//QtConcurrent::blockingMap(modDirectory.entryList(QDir::Dirs | QDir::NoDotAndDotDot), hideFolder);
+			DeleteEmptyDirs(dir.absoluteFilePath(dirName));
+		}
+		dir.rmdir(dir.absolutePath());
 	}
 }
